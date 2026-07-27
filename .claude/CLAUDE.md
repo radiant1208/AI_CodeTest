@@ -96,7 +96,7 @@ AI_CodeTest/
   "Robot": {
     "FootprintLength": 24.0,
     "FootprintWidth": 16.0,
-    "TurningRadius": 30.0,
+    "TurningRadius": 20.0,
     "MaxSteeringAngleDeg": 35.0
   },
   "Search": {
