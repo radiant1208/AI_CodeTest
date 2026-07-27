@@ -1,0 +1,35 @@
+{
+  "env": {
+    "CROA_PROJECT": "true",
+    "DOTNET_ENVIRONMENT": "Development"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(dotnet run *)",
+      "Bash(dotnet publish *)",
+      "Bash(dotnet format *)",
+      "Bash(dotnet restore *)",
+      "Bash(dotnet add package *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(where python:*)"
+    ],
+    "deny": [
+      "Read(source/Core/appsettings.json)",
+      "Read(**/appsettings.*.json)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pfx)",
+      "Read(**/*.key)",
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(git reset --hard *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true
+}
