@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace PathSearch.Map
 {
-    /// <summary>휴리스틱 전용 point-robot 근사: 장애물을 지정 반경만큼 부풀린 OccupancyGrid 생성(부정확하지만 빠름).</summary>
+    /// <summary>point-robot 근사: 장애물을 지정 반경만큼 부풀린 OccupancyGrid 생성(부정확하지만 O(1) 조회, 빠름).
+    /// Holonomic 휴리스틱의 Distance Map 전처리, FootprintCollisionChecker의 1차 Bounding-Circle Early-Out 양쪽에서 재사용된다.</summary>
     public static class ObstacleInflator
     {
         private static readonly int[] OffsetX = { -1, 0, 1, -1, 1, -1, 0, 1 };

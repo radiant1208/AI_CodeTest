@@ -143,5 +143,16 @@ AI_CodeTest/
 - [x] `Parameters.cs` 모든 속성에 단위(px/deg/count/배율)·목적 XML 주석 추가
 - [x] **0단계 완료**: `appsettings.json`에 `ResultDirectory` 추가, `Program.cs`에서 시작 시 설정/파라미터를 로드하도록 연결 (클래스명 충돌 회피 위해 `App` → `Program`으로 변경), 빌드·실행 확인 완료
 - [x] `App/AppConfig.cs`로 교체: 별도 POCO 없이 `IConfigurationRoot`를 정적으로 노출하는 방식으로 변경. `Validate()`로 appsettings.json/`MapDirectory`/`DataDirectory` 누락 시 `Program.cs`가 에러 로그 후 `return`하도록 처리. `ParameterLoader`는 `data/parameter.json` 누락 시 예외 대신 `new Parameters()`로 폴백하도록 변경. `Microsoft.Extensions.Configuration`, `Configuration.Json` 패키지 추가. 정상/appsettings.json 누락/parameter.json 누락 3가지 시나리오 실행 확인 완료
-- [ ] `IO/` 이미지 파이프라인 (1단계)
-- [ ] 이후 로드맵 2~10단계
+- [x] **1~4단계 완료**: `IO/`(이미지 로드/파싱/저장), `Map/`(OccupancyGrid, ObstacleInflator), 2D A* 기반 `HolonomicObstacleHeuristic`, `Kinematics/`(VehicleKinematics, Footprint, MotionPrimitiveGenerator) 구현 완료
+- [x] **5단계 완료**: `Planning/Collision/FootprintCollisionChecker.cs`(사각형 Footprint 래스터화 정밀 충돌검사, Step 4에서 누락되어 있던 파일) 신규 작성. `HybridState`, `StateDiscretizer`((ix,iy,itheta) 격자 인덱스 + 셀별 최소 g 기반 Closed 처리), `PriorityOpenSet`(PriorityQueue 기반, stale 노드는 Pop 시 discretizer로 검증) 구현. `HybridAStarPlanner.Search()`가 Pop→목표 허용오차 판정→모션 프리미티브 생성→충돌검사→g/h/f 계산→push 루프를 수행하고, `MaxSearchNodes`/`MaxSearchSeconds`(둘 다 `data/parameter.json` 신규 파라미터) 초과 시 실패 처리
+- [x] **6단계 완료**: `Planning/Heuristics/NonHolonomicHeuristic.cs` 구현 — TurningRadius 제약만 고려한 Dubins 곡선 거리 근사(LSL/RSR 해석해, 해석 불가 케이스는 유클리드 거리+회전 보정항으로 근사; 전체 Reeds-Shepp 대신 근사식 채택). `h = max(holonomic, non-holonomic)` 결합, ReversePenalty/DirectionChangePenalty 코스트 반영. `Program.cs`에 맵 1개(`map1_corridor.png`) 대상 자가 검증 코드 추가 — 실행 확인 결과 지그재그 미로에서 약 59만 노드/24초 만에 경로(297점, 비용 2368px) 탐색 성공. 이 결과에 맞춰 `MaxSearchNodes` 기본값을 200,000→1,000,000, `MaxSearchSeconds`를 20→60으로 상향 조정
+- [ ] 7단계: `AnalyticExpansion.cs`(Reeds-Shepp/Dubins 곡선으로 목표까지 한번에 연결 시도) — 아직 미착수, 현재는 매 스텝 모션 프리미티브만으로 탐색
+- [x] **8단계 일부(디버깅용) 완료**: `Visualization/PathOverlayRenderer.cs`(경로 세그먼트 전진=파랑/후진=빨강 색상 구분 + 노드별 heading 틱, 순수 렌더링) + `IO/ResultImageWriter.cs`(`results/result_{원본파일명}.png` 저장) 신규 작성, `Program.cs` 자가 검증 코드에 연결해 `map1_corridor.png` 결과 이미지 생성 확인. 정식 CLI 통합(모든 맵 대상 자동 렌더링/스타일 확정)은 9~10단계에서 마무리 예정
+- [x] **Step 5/6 성능 최적화 완료** (Step 7 Analytic Expansion 착수 전 병목 해소):
+  1. `FootprintCollisionChecker`가 생성 시 `ObstacleInflator`로 외접원(Bounding Circle) 반경만큼 부풀린 격자를 1회 캐싱하고, 매 충돌검사마다 이 격자를 O(1) 조회해 "외접원조차 장애물과 안 겹침"이 확정되면 정밀 Footprint 래스터화(2차)를 생략(Early-Out)하도록 변경. `ObstacleInflator`는 이제 휴리스틱 전용이 아니라 heuristic Distance Map + collision Early-Out 양쪽에서 재사용되는 공용 유틸리티로 문서 갱신
+  2. `StateDiscretizer`를 `Dictionary<(int,int,int),double>` → 맵 크기·해상도로 크기가 고정된 1차원 `double[]` Direct Look-up Table로 교체(해시 연산 제거, flat index 배열 접근만 사용). 배열 크기가 5,000만 셀을 넘으면(과도하게 작은 GridResolution/HeadingResolutionDeg) 예외로 안내
+  3. `MotionPrimitiveGenerator.Generate()`가 매 호출마다 `List<MotionPrimitive>`를 새로 할당하던 것을 내부 재사용 버퍼 + `ReadOnlySpan<MotionPrimitive>` 반환으로 변경해 탐색 루프의 GC 압력 제거(discretizer의 `TryUpdate` 게이트로 열등한 후보는 이미 HybridState 생성 전에 컷팅되던 기존 로직은 유지)
+  4. (검증 후 제거된 임시 점검 코드) `Program.cs`에 `RunResolutionSweep()`을 임시로 추가해 동일 맵(`map1_corridor.png`)에서 GridResolution/HeadingResolutionDeg 조합(4px/15°, 8px/15°, 4px/30°, 8px/30°)별 확장노드수·소요시간·경로비용을 비교 측정한 뒤 삭제
+
+  **실측 결과(map1_corridor.png, 동일 파라미터 4px/15°)**: 최적화 전 590,192노드/24.0s → 최적화 후 590,192노드/2.7s (노드 수 동일 = 탐색 결과·정확성 불변, 노드당 처리 속도만 약 9배 개선). 해상도 스윕: 8px/15°는 79,757노드/0.36s(비용 2434px), 4px/30°는 274,608노드/1.14s(비용 2416px), 8px/30°는 74,953노드/0.29s(비용 2546px) — 해상도를 낮출수록 빨라지지만 경로 비용(품질)이 약간 나빠지는 트레이드오프 확인. 최종 기본값 튜닝은 10단계에서 결정
+- [ ] 9~10단계: `CliRunner.cs`(maps/ 전체 순회), 파라미터 최종 튜닝

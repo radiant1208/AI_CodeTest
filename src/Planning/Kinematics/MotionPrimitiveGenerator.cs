@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using PathSearch.Parameter;
 
 namespace PathSearch.Planning.Kinematics
@@ -14,6 +13,8 @@ namespace PathSearch.Planning.Kinematics
         private readonly double _turningRadius;
         private readonly double _maxSteeringAngleRad;
         private readonly double[] _steeringAnglesRad;
+        // Generate()가 매 호출마다 List를 새로 할당하지 않도록 재사용하는 내부 버퍼(탐색 루프 GC 압력 감소).
+        private readonly MotionPrimitive[] _buffer;
 
         public MotionPrimitiveGenerator(RobotParameters robot, SearchParameters search)
         {
@@ -24,25 +25,26 @@ namespace PathSearch.Planning.Kinematics
             _turningRadius = robot.TurningRadius;
             _maxSteeringAngleRad = DegToRad(robot.MaxSteeringAngleDeg);
             _steeringAnglesRad = BuildSteeringAngles(_maxSteeringAngleRad, search.SteeringAngleSamples);
+            _buffer = new MotionPrimitive[_steeringAnglesRad.Length * (search.ReverseEnabled ? 2 : 1)];
         }
 
-        /// <summary>현재 pose (x,y,thetaRad)에서 조향각 후보 × 전진(및 ReverseEnabled 시 후진) 조합의 다음 상태 후보 목록을 반환한다.</summary>
-        public IReadOnlyList<MotionPrimitive> Generate(double x, double y, double thetaRad)
+        /// <summary>현재 pose (x,y,thetaRad)에서 조향각 후보 × 전진(및 ReverseEnabled 시 후진) 조합의 다음 상태 후보를
+        /// 내부 재사용 버퍼에 채워 반환한다(호출마다 할당 없음). 반환된 Span은 다음 Generate 호출 전까지만 유효하다.</summary>
+        public ReadOnlySpan<MotionPrimitive> Generate(double x, double y, double thetaRad)
         {
-            List<MotionPrimitive> primitives = new(_steeringAnglesRad.Length * (_search.ReverseEnabled ? 2 : 1));
-
+            int count = 0;
             foreach (double steeringRad in _steeringAnglesRad)
             {
                 double curvature = ComputeCurvature(steeringRad);
 
-                primitives.Add(CreatePrimitive(x, y, thetaRad, curvature, steeringRad, isReverse: false));
+                _buffer[count++] = CreatePrimitive(x, y, thetaRad, curvature, steeringRad, isReverse: false);
                 if (_search.ReverseEnabled)
                 {
-                    primitives.Add(CreatePrimitive(x, y, thetaRad, curvature, steeringRad, isReverse: true));
+                    _buffer[count++] = CreatePrimitive(x, y, thetaRad, curvature, steeringRad, isReverse: true);
                 }
             }
 
-            return primitives;
+            return _buffer.AsSpan(0, count);
         }
 
         private MotionPrimitive CreatePrimitive(double x, double y, double thetaRad, double curvature, double steeringRad, bool isReverse)

@@ -40,6 +40,14 @@ namespace PathSearch.Parameter
         public double DirectionChangePenalty { get; init; } = 5.0;
         /// <summary>Analytic Expansion 시도 간격 (단위: count)</summary>
         public int AnalyticExpansionInterval { get; init; } = 10;
+        /// <summary>목표 도달 판정 위치 허용오차 (단위: px)</summary>
+        public double GoalToleranceXY { get; init; } = 10.0;
+        /// <summary>목표 도달 판정 heading 허용오차 (단위: deg)</summary>
+        public double GoalToleranceThetaDeg { get; init; } = 20.0;
+        /// <summary>탐색 실패 처리 기준 최대 확장 노드 수 (단위: count)</summary>
+        public int MaxSearchNodes { get; init; } = 1000000;
+        /// <summary>탐색 실패 처리 기준 최대 소요 시간 (단위: sec)</summary>
+        public double MaxSearchSeconds { get; init; } = 60.0;
     }
 
     /// <summary>맵 이미지 관련 파라미터.</summary>
