@@ -21,16 +21,23 @@ namespace PathSearch.Planning
         /// <summary>목표 노드의 누적 g코스트(px 환산, 실패 시 0)</summary>
         public double TotalCost { get; init; }
         public string FailureReason { get; init; } = string.Empty;
+        /// <summary>목표 도달이 Analytic Expansion(곡선 연결)으로 이루어졌는지 여부</summary>
+        public bool AnalyticExpansionUsed { get; init; }
     }
 
     /// <summary>Holonomic(장애물 회피) + Non-Holonomic(회전 제약) 이중 휴리스틱과 Footprint 정밀 충돌검사를 결합한 Hybrid A* 탐색기.</summary>
     public sealed class HybridAStarPlanner
     {
+        // Goal과의 직선거리가 이 배수(x TurningRadius) 이내이면 간격(AnalyticExpansionInterval)과 무관하게
+        // 매 확장마다 Analytic Expansion을 시도한다(곡선 연결 성공 가능성이 높은 근접 구간을 놓치지 않기 위함).
+        private const double NearGoalTriggerRadiusFactor = 3.0;
+
         private readonly OccupancyGrid _grid;
         private readonly MotionPrimitiveGenerator _primitiveGenerator;
         private readonly FootprintCollisionChecker _collisionChecker;
         private readonly IHeuristic _holonomicHeuristic;
         private readonly IHeuristic _nonHolonomicHeuristic;
+        private readonly AnalyticExpansion _analyticExpansion;
         private readonly SearchParameters _search;
 
         public HybridAStarPlanner(
@@ -39,6 +46,7 @@ namespace PathSearch.Planning
             FootprintCollisionChecker collisionChecker,
             IHeuristic holonomicHeuristic,
             IHeuristic nonHolonomicHeuristic,
+            AnalyticExpansion analyticExpansion,
             SearchParameters search)
         {
             ArgumentNullException.ThrowIfNull(grid);
@@ -46,6 +54,7 @@ namespace PathSearch.Planning
             ArgumentNullException.ThrowIfNull(collisionChecker);
             ArgumentNullException.ThrowIfNull(holonomicHeuristic);
             ArgumentNullException.ThrowIfNull(nonHolonomicHeuristic);
+            ArgumentNullException.ThrowIfNull(analyticExpansion);
             ArgumentNullException.ThrowIfNull(search);
 
             _grid = grid;
@@ -53,6 +62,7 @@ namespace PathSearch.Planning
             _collisionChecker = collisionChecker;
             _holonomicHeuristic = holonomicHeuristic;
             _nonHolonomicHeuristic = nonHolonomicHeuristic;
+            _analyticExpansion = analyticExpansion;
             _search = search;
         }
 
@@ -95,7 +105,15 @@ namespace PathSearch.Planning
 
                 if (IsGoalReached(current, goalX, goalY, goalThetaRad, goalToleranceXY, goalToleranceThetaRad))
                 {
-                    return Succeed(current, expanded, stopwatch.Elapsed.TotalSeconds);
+                    return Succeed(current, expanded, stopwatch.Elapsed.TotalSeconds, analyticExpansionUsed: false);
+                }
+
+                bool shouldTryAnalyticExpansion = expanded % _search.AnalyticExpansionInterval == 0
+                    || IsNearGoal(current, goalX, goalY, _analyticExpansion.TurningRadiusPx * NearGoalTriggerRadiusFactor);
+
+                if (shouldTryAnalyticExpansion && _analyticExpansion.TryExpand(current, goalX, goalY, goalThetaRad, out HybridState? analyticGoal))
+                {
+                    return Succeed(analyticGoal!, expanded, stopwatch.Elapsed.TotalSeconds, analyticExpansionUsed: true);
                 }
 
                 foreach (MotionPrimitive primitive in _primitiveGenerator.Generate(current.X, current.Y, current.ThetaRad))
@@ -156,7 +174,14 @@ namespace PathSearch.Planning
             return headingDiff <= toleranceThetaRad;
         }
 
-        private static PlanResult Succeed(HybridState goalState, int expanded, double elapsedSeconds)
+        private static bool IsNearGoal(HybridState state, double goalX, double goalY, double triggerRadius)
+        {
+            double dx = state.X - goalX;
+            double dy = state.Y - goalY;
+            return Math.Sqrt((dx * dx) + (dy * dy)) <= triggerRadius;
+        }
+
+        private static PlanResult Succeed(HybridState goalState, int expanded, double elapsedSeconds, bool analyticExpansionUsed)
         {
             List<HybridState> path = new();
             HybridState? node = goalState;
@@ -174,6 +199,7 @@ namespace PathSearch.Planning
                 ExpandedNodeCount = expanded,
                 ElapsedSeconds = elapsedSeconds,
                 TotalCost = goalState.G,
+                AnalyticExpansionUsed = analyticExpansionUsed,
             };
         }
 

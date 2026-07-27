@@ -93,12 +93,17 @@ namespace PathSearch
             System.Drawing.Point goalPoint = new((int)Math.Round(parsed.Goal.X), (int)Math.Round(parsed.Goal.Y));
             HolonomicObstacleHeuristic holonomicHeuristic = new(parsed.Grid, goalPoint, robotRadius);
             NonHolonomicHeuristic nonHolonomicHeuristic = new(parsed.Goal.X, parsed.Goal.Y, parsed.Goal.HeadingRad, robot.TurningRadius, search.ReverseEnabled);
+            AnalyticExpansion analyticExpansion = new(collisionChecker, robot, search);
 
-            HybridAStarPlanner planner = new(parsed.Grid, primitiveGenerator, collisionChecker, holonomicHeuristic, nonHolonomicHeuristic, search);
+            HybridAStarPlanner planner = new(parsed.Grid, primitiveGenerator, collisionChecker, holonomicHeuristic, nonHolonomicHeuristic, analyticExpansion, search);
 
             PlanResult result = planner.Search(parsed.Start.X, parsed.Start.Y, parsed.Start.HeadingRad, parsed.Goal.X, parsed.Goal.Y, parsed.Goal.HeadingRad);
-
             Console.WriteLine($"[탐색 결과] Success={result.Success}, 소요시간={result.ElapsedSeconds:F3}s, 확장노드수={result.ExpandedNodeCount}");
+
+            if (result.AnalyticExpansionUsed)
+            {
+                Console.WriteLine("[Analytic Expansion Success] Goal connected!");
+            }
 
             if (!result.Success)
             {
@@ -119,7 +124,7 @@ namespace PathSearch
                 Console.WriteLine($"  ... (총 {result.Path.Count}개 중 {printCount}개만 표시)");
             }
 
-            using Mat rendered = PathOverlayRenderer.Render(image, result.Path);
+            using Mat rendered = PathOverlayRenderer.Render(image, result.Path, footprint);
             string savedResultPath = ResultImageWriter.Save(rendered, mapPath, AppConfig.ResultDirectory);
             Console.WriteLine($"[시각화 저장 완료] {savedResultPath}");
         }

@@ -94,9 +94,9 @@ AI_CodeTest/
 ```json
 {
   "Robot": {
-    "FootprintLength": 24.0,
-    "FootprintWidth": 16.0,
-    "TurningRadius": 20.0,
+    "FootprintLength": 30.0,
+    "FootprintWidth": 20.0,
+    "TurningRadius": 40.0,
     "MaxSteeringAngleDeg": 35.0
   },
   "Search": {
