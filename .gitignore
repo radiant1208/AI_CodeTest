@@ -7,6 +7,11 @@ src_gen
 open-api-docs/
 
 parameter.json
+
+# Vue frontend (src_front) build artifacts/deps
+src_front/node_modules/
+src/wwwroot/
+
 # Visual Studio Code
 .vscode
 

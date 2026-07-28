@@ -15,6 +15,9 @@ namespace PathSearch.App
         public static string DataDirectory => Configuration["DataDirectory"] ?? string.Empty;
         public static string ResultDirectory => Configuration["ResultDirectory"] ?? string.Empty;
 
+        /// <summary>Kestrel 웹 서버 바인딩 포트. 설정이 없으면 8888(기본값).</summary>
+        public static int WebServerPort => Configuration.GetValue("WebServer:Port", 8888);
+
         private static IConfigurationRoot Build()
         {
             return new ConfigurationBuilder()

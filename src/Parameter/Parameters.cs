@@ -33,7 +33,7 @@ namespace PathSearch.Parameter
         /// <summary>조향각 후보 개수 (단위: count)</summary>
         public int SteeringAngleSamples { get; init; } = 5;
         /// <summary>후진 허용 여부</summary>
-        public bool ReverseEnabled { get; init; } = true;
+        public bool ReverseEnabled { get; init; } = false;
         /// <summary>후진 비용 가중치 (단위: 배율)</summary>
         public double ReversePenalty { get; init; } = 2.0;
         /// <summary>전후진 전환 페널티 (단위: px)</summary>

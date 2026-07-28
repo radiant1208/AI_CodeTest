@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using PathSearch.Map;
 using PathSearch.Parameter;
 using PathSearch.Planning.Collision;
@@ -66,8 +67,9 @@ namespace PathSearch.Planning
             _search = search;
         }
 
-        /// <summary>start pose에서 goal pose(허용오차 이내)까지 Hybrid A*로 탐색한다. 최대 노드 수/시간 초과 시 실패 처리.</summary>
-        public PlanResult Search(double startX, double startY, double startThetaRad, double goalX, double goalY, double goalThetaRad)
+        /// <summary>start pose에서 goal pose(허용오차 이내)까지 Hybrid A*로 탐색한다. 최대 노드 수/시간 초과 시 실패 처리.
+        /// cancellationToken이 취소되면 OperationCanceledException을 던져 즉시 탐색을 중단한다(FE의 "탐색 종료" 요청 반영).</summary>
+        public PlanResult Search(double startX, double startY, double startThetaRad, double goalX, double goalY, double goalThetaRad, CancellationToken cancellationToken = default)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             StateDiscretizer discretizer = new(_grid.Width, _grid.Height, _search.GridResolution, _search.HeadingResolutionDeg);
@@ -85,6 +87,8 @@ namespace PathSearch.Planning
 
             while (openSet.Count > 0)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (expanded >= _search.MaxSearchNodes)
                 {
                     return Fail(expanded, stopwatch.Elapsed.TotalSeconds, $"최대 탐색 노드 수({_search.MaxSearchNodes})를 초과했습니다.");
