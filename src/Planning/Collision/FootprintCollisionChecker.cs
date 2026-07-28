@@ -37,7 +37,8 @@ namespace PathSearch.Planning.Collision
                 return false;
             }
 
-            (double X, double Y)[] corners = _footprint.GetCorners(x, y, thetaRad);
+            Span<(double X, double Y)> corners = stackalloc (double X, double Y)[4];
+            _footprint.GetCorners(x, y, thetaRad, corners);
 
             double minX = corners[0].X, maxX = corners[0].X;
             double minY = corners[0].Y, maxY = corners[0].Y;

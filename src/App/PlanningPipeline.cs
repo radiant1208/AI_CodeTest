@@ -37,8 +37,13 @@ namespace PathSearch.App
             MotionPrimitiveGenerator primitiveGenerator = new(robot, search);
             FootprintCollisionChecker collisionChecker = new(parsed.Grid, footprint);
 
-            // Holonomic 휴리스틱은 point-robot 근사이므로, 차체를 감싸는 외접원 반경으로 장애물을 부풀린다.
-            double robotRadius = Math.Sqrt(Math.Pow(robot.FootprintLength / 2.0, 2) + Math.Pow(robot.FootprintWidth / 2.0, 2));
+            // Holonomic 휴리스틱은 point-robot 근사이므로 반경 선택이 Admissible 여부를 좌우한다.
+            // 외접원(대각선) 반경으로 부풀리면, 실제로는 로봇이 정렬해서 통과 가능한(폭 < 외접원 지름) 대각선
+            // 방향 좁은 통로까지 "도달 불가(h=MaxValue)"로 오판해 h가 실제 최적 비용을 과대추정할 수 있다(Admissible 위반).
+            // 정밀 충돌검사는 FootprintCollisionChecker가 별도로 담당하므로, 휴리스틱은 로봇의 가장 얇은 축
+            // (내접) 절반 폭만으로 부풀려 "진짜 도달 불가능한 영역"만 걸러지도록 한다(안전 마진 축소이나,
+            // 안전성 자체는 정밀 충돌검사가 보장하므로 이 완화로 인한 위험은 없음).
+            double robotRadius = Math.Min(robot.FootprintLength, robot.FootprintWidth) / 2.0;
             System.Drawing.Point goalPoint = new((int)Math.Round(parsed.Goal.X), (int)Math.Round(parsed.Goal.Y));
             HolonomicObstacleHeuristic holonomicHeuristic = new(parsed.Grid, goalPoint, robotRadius);
             NonHolonomicHeuristic nonHolonomicHeuristic = new(parsed.Goal.X, parsed.Goal.Y, parsed.Goal.HeadingRad, robot.TurningRadius, search.ReverseEnabled);

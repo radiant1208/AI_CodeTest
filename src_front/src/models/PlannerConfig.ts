@@ -15,6 +15,7 @@ export interface SearchConfig {
   reverseEnabled: boolean
   reversePenalty: number
   directionChangePenalty: number
+  steeringChangePenalty: number
   analyticExpansionInterval: number
   goalToleranceXY: number
   goalToleranceThetaDeg: number

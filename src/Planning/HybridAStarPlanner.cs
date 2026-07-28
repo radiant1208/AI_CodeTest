@@ -73,13 +73,16 @@ namespace PathSearch.Planning
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             StateDiscretizer discretizer = new(_grid.Width, _grid.Height, _search.GridResolution, _search.HeadingResolutionDeg);
+            // 확장 노드를 구조체 Arena에 순차 저장한다(부모는 참조가 아닌 int 인덱스) — 탐색 루프에서
+            // 확장마다(최대 수백만 건/탐색) HybridState를 힙에 new하던 GC 압박을 제거하기 위함.
+            NodePool pool = new();
             PriorityOpenSet openSet = new();
 
             double startH = CombinedHeuristic(startX, startY, startThetaRad);
-            HybridState startState = new(startX, startY, startThetaRad, g: 0.0, h: startH, isReverse: false, steeringAngleRad: 0.0, parent: null);
+            int startIndex = pool.Add(startX, startY, startThetaRad, g: 0.0, h: startH, isReverse: false, steeringAngleRad: 0.0, parentIndex: -1);
 
             discretizer.TryUpdate(startX, startY, startThetaRad, 0.0);
-            openSet.Push(startState);
+            openSet.Push(pool, startIndex);
 
             double goalToleranceXY = _search.GoalToleranceXY;
             double goalToleranceThetaRad = _search.GoalToleranceThetaDeg * Math.PI / 180.0;
@@ -99,25 +102,26 @@ namespace PathSearch.Planning
                     return Fail(expanded, stopwatch.Elapsed.TotalSeconds, $"최대 탐색 시간({_search.MaxSearchSeconds}초)을 초과했습니다.");
                 }
 
-                HybridState? current = openSet.Pop(discretizer);
-                if (current is null)
+                int currentIndex = openSet.Pop(pool, discretizer);
+                if (currentIndex < 0)
                 {
                     break;
                 }
 
+                HybridStateNode current = pool[currentIndex];
                 expanded++;
 
                 if (IsGoalReached(current, goalX, goalY, goalThetaRad, goalToleranceXY, goalToleranceThetaRad))
                 {
-                    return Succeed(current, expanded, stopwatch.Elapsed.TotalSeconds, analyticExpansionUsed: false);
+                    return Succeed(pool, currentIndex, expanded, stopwatch.Elapsed.TotalSeconds, analyticExpansionUsed: false);
                 }
 
                 bool shouldTryAnalyticExpansion = expanded % _search.AnalyticExpansionInterval == 0
                     || IsNearGoal(current, goalX, goalY, _analyticExpansion.TurningRadiusPx * NearGoalTriggerRadiusFactor);
 
-                if (shouldTryAnalyticExpansion && _analyticExpansion.TryExpand(current, goalX, goalY, goalThetaRad, out HybridState? analyticGoal))
+                if (shouldTryAnalyticExpansion && _analyticExpansion.TryExpand(pool, currentIndex, goalX, goalY, goalThetaRad, out int analyticGoalIndex))
                 {
-                    return Succeed(analyticGoal!, expanded, stopwatch.Elapsed.TotalSeconds, analyticExpansionUsed: true);
+                    return Succeed(pool, analyticGoalIndex, expanded, stopwatch.Elapsed.TotalSeconds, analyticExpansionUsed: true);
                 }
 
                 foreach (MotionPrimitive primitive in _primitiveGenerator.Generate(current.X, current.Y, current.ThetaRad))
@@ -137,6 +141,14 @@ namespace PathSearch.Planning
                         moveCost += _search.DirectionChangePenalty;
                     }
 
+                    // 직전 스텝 대비 조향각 변화량에 비례한 페널티. StepSize/ReversePenalty/DirectionChangePenalty만으로는
+                    // "직진"과 "좌우 지그재그"의 g코스트가 완전히 동일해(둘 다 매 스텝 StepSize만 소모), Holonomic
+                    // 휴리스틱(heading 미고려)까지 겹쳐 직선 구간에서 우열이 없는 동률이 반복 발생 — 동률은 discretizer가
+                    // 셀을 먼저 선점한 후보가 이기므로 지그재그가 우연히 채택되는 진동 현상으로 이어진다. 조향각이 바뀔
+                    // 때만 비용을 부과해(같은 각도를 유지하는 직진/완만한 회전은 추가 비용 없음) 이 동률을 깬다.
+                    double steeringChange = Math.Abs(primitive.SteeringAngleRad - current.SteeringAngleRad);
+                    moveCost += steeringChange * _search.SteeringChangePenalty;
+
                     double g = current.G + moveCost;
                     if (!discretizer.TryUpdate(primitive.X, primitive.Y, primitive.ThetaRad, g))
                     {
@@ -144,8 +156,8 @@ namespace PathSearch.Planning
                     }
 
                     double h = CombinedHeuristic(primitive.X, primitive.Y, primitive.ThetaRad);
-                    HybridState next = new(primitive.X, primitive.Y, primitive.ThetaRad, g, h, primitive.IsReverse, primitive.SteeringAngleRad, current);
-                    openSet.Push(next);
+                    int nextIndex = pool.Add(primitive.X, primitive.Y, primitive.ThetaRad, g, h, primitive.IsReverse, primitive.SteeringAngleRad, currentIndex);
+                    openSet.Push(pool, nextIndex);
                 }
             }
 
@@ -165,7 +177,7 @@ namespace PathSearch.Planning
             return Math.Max(holonomic, nonHolonomic);
         }
 
-        private static bool IsGoalReached(HybridState state, double goalX, double goalY, double goalThetaRad, double toleranceXY, double toleranceThetaRad)
+        private static bool IsGoalReached(HybridStateNode state, double goalX, double goalY, double goalThetaRad, double toleranceXY, double toleranceThetaRad)
         {
             double dx = state.X - goalX;
             double dy = state.Y - goalY;
@@ -178,21 +190,24 @@ namespace PathSearch.Planning
             return headingDiff <= toleranceThetaRad;
         }
 
-        private static bool IsNearGoal(HybridState state, double goalX, double goalY, double triggerRadius)
+        private static bool IsNearGoal(HybridStateNode state, double goalX, double goalY, double triggerRadius)
         {
             double dx = state.X - goalX;
             double dy = state.Y - goalY;
             return Math.Sqrt((dx * dx) + (dy * dy)) <= triggerRadius;
         }
 
-        private static PlanResult Succeed(HybridState goalState, int expanded, double elapsedSeconds, bool analyticExpansionUsed)
+        // 목표 노드에서 ParentIndex를 따라 역추적하며 NodePool의 구조체 노드를 결과용 HybridState로 변환한다.
+        // (경로 길이는 최대 수백~수천 개 수준이라 여기서의 할당은 GC 압박과 무관하다.)
+        private static PlanResult Succeed(NodePool pool, int goalIndex, int expanded, double elapsedSeconds, bool analyticExpansionUsed)
         {
             List<HybridState> path = new();
-            HybridState? node = goalState;
-            while (node is not null)
+            int index = goalIndex;
+            while (index >= 0)
             {
-                path.Add(node);
-                node = node.Parent;
+                HybridStateNode node = pool[index];
+                path.Add(new HybridState(node.X, node.Y, node.ThetaRad, node.IsReverse, node.SteeringAngleRad));
+                index = node.ParentIndex;
             }
             path.Reverse();
 
@@ -202,7 +217,7 @@ namespace PathSearch.Planning
                 Path = path,
                 ExpandedNodeCount = expanded,
                 ElapsedSeconds = elapsedSeconds,
-                TotalCost = goalState.G,
+                TotalCost = pool[goalIndex].G,
                 AnalyticExpansionUsed = analyticExpansionUsed,
             };
         }

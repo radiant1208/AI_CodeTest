@@ -38,6 +38,8 @@ namespace PathSearch.Parameter
         public double ReversePenalty { get; init; } = 2.0;
         /// <summary>전후진 전환 페널티 (단위: px)</summary>
         public double DirectionChangePenalty { get; init; } = 5.0;
+        /// <summary>직전 스텝 대비 조향각 변화 페널티 (단위: px/rad, 직진 구간 좌우 헤딩 진동 억제용)</summary>
+        public double SteeringChangePenalty { get; init; } = 8.0;
         /// <summary>Analytic Expansion 시도 간격 (단위: count)</summary>
         public int AnalyticExpansionInterval { get; init; } = 10;
         /// <summary>목표 도달 판정 위치 허용오차 (단위: px)</summary>

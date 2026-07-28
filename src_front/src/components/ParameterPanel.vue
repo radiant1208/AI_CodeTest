@@ -15,6 +15,7 @@ const form = reactive<PlannerConfig>({
     reverseEnabled: true,
     reversePenalty: 0,
     directionChangePenalty: 0,
+    steeringChangePenalty: 0,
     analyticExpansionInterval: 0,
     goalToleranceXY: 0,
     goalToleranceThetaDeg: 0,
@@ -163,6 +164,16 @@ function onFieldChange() {
               <v-text-field
                 v-model.number="form.search.directionChangePenalty"
                 label="전후진 전환 페널티 (DirectionChangePenalty, px)"
+                type="number"
+                density="compact"
+                hide-details
+                @blur="onFieldChange"
+              />
+            </v-col>
+            <v-col cols="12">
+              <v-text-field
+                v-model.number="form.search.steeringChangePenalty"
+                label="조향각 변화 페널티 (SteeringChangePenalty, px/rad) — 직진 중 좌우 헤딩 진동 억제"
                 type="number"
                 density="compact"
                 hide-details

@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 
 namespace PathSearch.Planning.Kinematics
 {
@@ -9,6 +10,7 @@ namespace PathSearch.Planning.Kinematics
         private const double CurvatureEpsilon = 1e-9;
 
         /// <summary>(x,y,thetaRad)에서 curvature(1/px, +좌회전/-우회전)로 arcLength(px, 후진이면 음수)만큼 이동한 다음 pose.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static (double X, double Y, double ThetaRad) Move(double x, double y, double thetaRad, double curvature, double arcLength)
         {
             if (Math.Abs(curvature) < CurvatureEpsilon)
@@ -26,6 +28,7 @@ namespace PathSearch.Planning.Kinematics
         }
 
         /// <summary>각도를 [-π, π) 범위로 정규화한다.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double NormalizeAngle(double angleRad)
         {
             double twoPi = 2.0 * Math.PI;

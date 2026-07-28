@@ -32,12 +32,13 @@ namespace PathSearch.Planning
             _reverseEnabled = search.ReverseEnabled;
         }
 
-        /// <summary>current에서 goal pose까지 곡선 연결을 시도한다. 성공 시 current를 부모로 잇는 새
-        /// HybridState 체인의 마지막(목표) 노드를 goalState로 반환하고 true. 곡선이 없거나 중간 샘플이
-        /// 하나라도 충돌하면 false(goalState=null).</summary>
-        public bool TryExpand(HybridState current, double goalX, double goalY, double goalThetaRad, out HybridState? goalState)
+        /// <summary>currentIndex(NodePool 노드)에서 goal pose까지 곡선 연결을 시도한다. 성공 시 같은 NodePool에
+        /// currentIndex를 부모로 잇는 노드들을 이어붙이고 마지막(목표) 노드의 인덱스를 goalIndex로 반환하며 true.
+        /// 곡선이 없거나 중간 샘플이 하나라도 충돌하면 false(goalIndex=-1, 풀에는 아무것도 추가하지 않음).</summary>
+        public bool TryExpand(NodePool pool, int currentIndex, double goalX, double goalY, double goalThetaRad, out int goalIndex)
         {
-            goalState = null;
+            goalIndex = -1;
+            HybridStateNode current = pool[currentIndex];
 
             CurvePathResult? curve = _reverseEnabled
                 ? ReedsSheppPath.TryFindShortest(current.X, current.Y, current.ThetaRad, goalX, goalY, goalThetaRad, _turningRadius)
@@ -53,7 +54,7 @@ namespace PathSearch.Planning
             double theta = current.ThetaRad;
             double g = current.G;
             bool previousReverse = current.IsReverse;
-            HybridState parent = current;
+            int parentIndex = currentIndex;
 
             foreach (CurveSegment segment in curve.Segments)
             {
@@ -86,8 +87,7 @@ namespace PathSearch.Planning
                     }
                     g += moveCost;
 
-                    HybridState node = new(nx, ny, nTheta, g, h: 0.0, isReverse, steeringAngleRad: 0.0, parent);
-                    parent = node;
+                    parentIndex = pool.Add(nx, ny, nTheta, g, h: 0.0, isReverse, steeringAngleRad: 0.0, parentIndex);
                     previousReverse = isReverse;
 
                     x = nx;
@@ -97,7 +97,7 @@ namespace PathSearch.Planning
                 }
             }
 
-            goalState = parent;
+            goalIndex = parentIndex;
             return true;
         }
     }

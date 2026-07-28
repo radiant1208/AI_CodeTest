@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using PathSearch.Planning.Kinematics;
 
 namespace PathSearch.Planning
@@ -46,6 +47,7 @@ namespace PathSearch.Planning
         }
 
         // (x,y,thetaRad)를 배열 flat index로 변환한다. 부동소수점 경계값은 클램프해 배열 범위를 벗어나지 않게 한다.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int ToFlatIndex(double x, double y, double thetaRad)
         {
             int ix = Math.Clamp((int)Math.Floor(x / _gridResolution), 0, _ixCount - 1);
@@ -59,6 +61,7 @@ namespace PathSearch.Planning
         }
 
         /// <summary>g가 해당 셀의 기존 최소 g보다 작으면 갱신 후 true(계속 탐색 가치 있음), 아니면 false(Closed 처리).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryUpdate(double x, double y, double thetaRad, double g)
         {
             int index = ToFlatIndex(x, y, thetaRad);
@@ -72,6 +75,7 @@ namespace PathSearch.Planning
         }
 
         /// <summary>(x,y,thetaRad,g)가 여전히 해당 셀의 최선 g코스트인지 여부(OpenSet Pop 시 stale 판정용).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsBest(double x, double y, double thetaRad, double g)
         {
             int index = ToFlatIndex(x, y, thetaRad);
