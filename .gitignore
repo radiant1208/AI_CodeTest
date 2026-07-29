@@ -16,7 +16,6 @@ src/wwwroot/
 .vscode
 
 .claude/settings.local.json
-appsettings.json
 # User-specific files
 *.rsuser
 *.suo

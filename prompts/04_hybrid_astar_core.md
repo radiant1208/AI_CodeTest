@@ -57,10 +57,12 @@ step 4도 이어서 구현해줘.
    - 좌표 타입으로 `System.Drawing.Point`를 채택(별도 NuGet 없이 .NET 8 런타임에 포함된 `System.Drawing.Primitives`로 크로스플랫폼 사용 가능함을 빌드로 확인). `Program.cs`가 `OpenCvSharp`도 `using`하고 있어 `Point` 이름이 `System.Drawing.Point`/`OpenCvSharp.Point`로 모호해지는 컴파일 에러(CS0104)가 발생 → 디버그 코드의 관련 사용처를 모두 완전정규화(`System.Drawing.Point`/`OpenCvSharp.Point`)해 해결.
    - `tests/PathSearch.Tests/` xUnit 프로젝트(`net8.0`, `src/PathSearch.csproj`에 대한 `ProjectReference`)를 신규 스캐폴딩. `VehicleKinematicsTests`(직선/후진 이동, 1/4원·전체원 궤적의 해석적 검증, 각도 정규화), `FootprintTests`(원점/이동/90도 회전 시 코너 좌표), `MotionPrimitiveGeneratorTests`(프리미티브 개수, 0-조향 직진/후진 프리미티브 일치, 최대 조향각 곡률이 `1/TurningRadius`와 일치, 샘플 1개일 때 직진만 생성) 총 18개 단위테스트를 작성해 `dotnet test`로 전부 통과 확인.
 
-## 사용자 피드백
-- Step 단위 로드맵을 "step N도 이어서 구현해줘"처럼 짧게 요청해도 이전 세션의 세부 컨텍스트(파라미터 구조, 폴더 규칙, XML 주석 스타일 등)를 그대로 이어받아 진행하는 방식을 기대함(재설명 불필요).
-- 로드맵 문구에 "단위테스트"가 명시되면, 콘솔 디버그 프린트 수준이 아니라 실제 xUnit 테스트 프로젝트를 신설하는 수준의 검증을 기대함.
+## 반영 여부 및 이유
 
-## 참고
-- 본 세션은 이전 대화(Step 0~2)를 이어받아 진행됨; Step 0~2 기록은 `prompts/01_initial_design.md`, `prompts/02_map_parsing.md` 참고.
-- Step 3/4 구현 이후 발견된 Distance Map 시각화 관련 디버깅 과정은 `prompts/05_debug_hybrid_astar_core.md`에 별도 기록.
+### 1) Step 3 요청: 기본 2D A*(Holonomic Heuristic) 구현
+반영 여부: 그대로 반영
+이유: 알고리즘 내부 계산이 정확한지는 직접 검증할 수 있는 부분은 아니지만, 요청한 대로 알고리즘 구성과 아키텍처가 반영된 것으로 생각되어 그대로 반영함.
+
+### 2) Step 4 진행 요청
+반영 여부: 그대로 반영
+이유: 매번 파라미터 구조나 폴더 규칙, 주석 스타일을 처음부터 다시 설명하기 번거로워 "step 4도 이어서 구현해줘"라고 짧게만 말했는데, 이전 세션을 그대로 기억해 로봇 운동학과 단위 테스트까지 요청한 수준으로 반영됨.

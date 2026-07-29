@@ -95,14 +95,20 @@ Claude
 5. **부수적으로 발견한 프로세스 오류와 정정**: 재검증 과정에서 `data/parameter.json`의 `ReverseEnabled`가 A 세션 종료 시점에 `true`로 남아있던 것을 발견 — A 세션에서 `mv`로 백업본을 복구한 뒤 `git status`에 해당 파일 변경이 나타나지 않는 것을 근거로 "복구 확인됨"이라 기록했으나, 이 파일이 `.gitignore`(9번째 줄 `parameter.json`) 대상이라 애초에 git이 추적하지 않으므로 그 근거 자체가 무효였음을 인지. 파일을 직접 Read해 `ReverseEnabled: false`로 재복구하고, A 섹션 하단의 잘못된 기록도 정정. 임시로 추가했던 `--selftest`/계측 코드는 두 세션 모두 최종적으로 `Program.cs`에서 제거해 원상 복구.
 6. **프롬프트 기록 병합 (프롬프트 4, 현재 작업)**: 별도 파일(`10_heading_zigzag.md`)로 분리하지 않고, 사용자 지시에 따라 A(Step 10 최적화)와 B(헤딩 지그재그 수정) 세션 내용을 `prompts/09_optimization.md` 한 파일에 병합 — 제목/목적/프롬프트 목록/AI 응답 요약/사용자 피드백/참고를 전부 두 세션을 아우르도록 갱신.
 
-## 사용자 피드백
-- **A(Step 10 최적화) 세션**: 단일 대형 요청 → AI의 자가 검증(코드 리딩 → 패치 → 빌드 → 3개 맵 양방향 시나리오 실행 검증) → 결과 보고의 단발 흐름으로 진행되어, 이전 세션들([[08_visualization]] 등)에서 반복됐던 "구현 → 실제 확인 → 결함 리포트 → 재수정"의 다회 피드백 루프는 발생하지 않았음. 다만 요청 자체에 "네가 스스로 검증하고 최적화 패치까지 완결된 형태로 제시"라는 명시적 지침이 있었으므로, 결함을 나열만 하고 끝내지 않고 실제 코드 수정 → 빌드 → 3개 맵 실측까지 스스로 완료한 뒤 보고하는 것 자체가 요구된 작업 방식이었음.
-- **B(헤딩 지그재그) 세션**: A 세션에서 이미 반영한 최적화 패치를 실제로 사용해 본 뒤에 나온 구체적 결함 리포트("직진 구간에서 좌우로 반복해서 꺾인다")였다는 점에서, 이번 세션은 08번 로그에서 관찰됐던 "구현 → 실제 확인 → 결함 리포트 → 근본 원인 수정"의 반복 루프가 다시 나타난 사례임. 결함 설명이 "이렇게 하지 마라"는 구체적 반례 없이 증상만 간결하게 주어졌으므로(원인 파악은 전적으로 AI에게 위임), 추측성 수정 대신 실제 비용 함수 코드를 먼저 읽어 근거를 확보한 뒤 패치하고, 수정 전/후 정량 지표(HeadingSignFlips)로 실측 검증까지 마친 뒤 보고하는 방식을 유지함.
-- **가장 중요한 자기 교정**: A 세션에서 "gitignore 대상 파일의 복구 여부를 `git status` 부재로 확인했다"고 잘못 기록한 것을 B 세션에서 실제 파일을 다시 Read하다가 스스로 발견 — 사용자의 직접적인 지적 없이 자체 검증 과정에서 나온 교정이지만, 향후 유사 상황(추적되지 않는 설정/데이터 파일의 상태 확인)에서 반드시 파일을 직접 읽어 확인해야 한다는 원칙을 세운 계기.
+## 반영 여부 및 이유
 
-## 참고
-- 본 세션(A+B)은 로드맵 Step 5~6(Analytic Expansion 이전 성능 최적화, [[07_analytic_expansion]] 참고)에서 이미 진행된 1차 최적화 위에서 진행된 **Step 10(튜닝/최종 검증)** 단계 작업이며, B는 그 연장선에서 발견된 실사용 결함 수정임.
-- 자가 검증 중 생성된 `results/result_map{1,2,3}_*.png`는 도구가 정상적으로 산출하는 결과물이라 별도로 삭제하지 않고 그대로 두었음(코드 변경 범위 아님).
-- **gitignore 대상 파일 상태 확인 원칙**: `data/parameter.json`은 `.gitignore`(9번째 줄 `parameter.json`)에 포함돼 git이 추적하지 않으므로, `git status`/`git diff`에 아무것도 나타나지 않는 것은 "복구됨"의 증거가 될 수 없다. A 세션에서 이 오류로 `ReverseEnabled: true`가 그대로 남았던 것을 B 세션에서 파일을 직접 Read해 발견·수정했음 — 이후 유사한 gitignore 대상 설정 파일을 다룰 때는 반드시 파일 내용을 직접 읽어 상태를 확인해야 함.
-- **Admissible/Consistent 검증과 실제 비용 함수 변경의 분리**: B에서 추가한 `SteeringChangePenalty`는 `g`(실제 누적 비용)에만 항을 더하는 변경이며, `h`(휴리스틱)는 전혀 건드리지 않았으므로 A 세션에서 검증·수정한 Admissible/Consistent 결론에 영향이 없음 — 다만 두 세션의 코드가 함께 작동하는 최종 상태 기준으로 이 성질이 성립함을 문서에 명시해 향후 참조 시 재검증 부담을 줄임.
-- 두 세션에서 최종적으로 변경된 파일: `src/Planning/NodePool.cs`(신규), `src/Planning/HybridState.cs`, `src/Planning/PriorityOpenSet.cs`, `src/Planning/HybridAStarPlanner.cs`(Node Pool 재배선 + `SteeringChangePenalty` 반영 2단계 수정), `src/Planning/AnalyticExpansion.cs`, `src/Planning/Kinematics/Footprint.cs`, `src/Planning/Collision/FootprintCollisionChecker.cs`, `src/Planning/Heuristics/NonHolonomicHeuristic.cs`, `src/Planning/Kinematics/VehicleKinematics.cs`, `src/Planning/StateDiscretizer.cs`, `src/Map/OccupancyGrid.cs`, `src/App/PlanningPipeline.cs`, `src/Parameter/Parameters.cs`(`SteeringChangePenalty` 추가), `src_front/src/models/PlannerConfig.ts`, `src_front/src/components/ParameterPanel.vue`. `data/parameter.json`은 gitignore 대상이라 위 목록과 별개로 로컬 데이터로만 갱신됨(`SteeringChangePenalty: 8` 추가, `ReverseEnabled: false` 최종 확인). 커밋은 두 세션 모두 수행하지 않았음(사용자 확인 후 별도 요청 필요).
+### 1) Step 10 전수 검증 및 최적화 요청
+반영 여부: 그대로 반영
+이유: 알고리즘 내부를 세세히 모르기 때문에, 문제점만 나열하지 말고 실제로 코드를 고치고 빌드해서 3개 맵으로 잘 되는지까지 직접 확인한 결과를 보여달라고 했고 그대로 반영됨.
+
+### 2) 프롬프트 기록 요청 (1차)
+반영 여부: 그대로 반영
+이유: 세션 내용을 정리해서 기록해달라는 요청대로 반영됨.
+
+### 3) 직진 구간 헤딩 지그재그 결함 보고
+반영 여부: 그대로 반영
+이유: "직진할 때 좌우로 흔들린다"는 증상만 전달하고 원인 분석은 전적으로 맡겼는데, 실제 비용 함수를 근거로 원인을 찾아 고치고 방향 전환 횟수 같은 수치로 개선을 확인시켜줌.
+
+### 4) 프롬프트 기록 요청 (2차, 병합 지시)
+반영 여부: 그대로 반영
+이유: 문서 업데이트 요청이 그대로 반영됨.

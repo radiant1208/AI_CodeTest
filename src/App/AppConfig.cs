@@ -11,9 +11,18 @@ namespace PathSearch.App
 
         public static IConfigurationRoot Configuration => _configuration.Value;
 
-        public static string MapDirectory => Configuration["MapDirectory"] ?? string.Empty;
-        public static string DataDirectory => Configuration["DataDirectory"] ?? string.Empty;
-        public static string ResultDirectory => Configuration["ResultDirectory"] ?? string.Empty;
+        public static string MapDirectory => ResolveAbsolute(Configuration["MapDirectory"]);
+        public static string DataDirectory => ResolveAbsolute(Configuration["DataDirectory"]);
+        public static string ResultDirectory => ResolveAbsolute(Configuration["ResultDirectory"]);
+
+        private static string ResolveAbsolute(string? configuredPath)
+        {
+            if (string.IsNullOrWhiteSpace(configuredPath))
+            {
+                return string.Empty;
+            }
+            return Path.GetFullPath(configuredPath);
+        }
 
         /// <summary>Kestrel 웹 서버 바인딩 포트. 설정이 없으면 8888(기본값).</summary>
         public static int WebServerPort => Configuration.GetValue("WebServer:Port", 8888);
